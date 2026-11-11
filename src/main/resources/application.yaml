@@ -1,3 +1,30 @@
+server:
+  port: 8082
+
 spring:
   application:
     name: session-manager
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:postgresql://localhost:5432/cloud_gaming_db
+    username: app_user
+    password: app_secure_password
+  flyway:
+    create-schemas: true
+    schemas: session_manager
+    default-schema: session_manager
+    locations: classpath:db/migration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: session_manager
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/cloud-gaming
+          jwk-set-uri: http://localhost:8180/realms/cloud-gaming/protocol/openid-connect/certs
