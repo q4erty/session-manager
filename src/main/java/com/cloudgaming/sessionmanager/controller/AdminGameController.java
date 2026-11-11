@@ -1,8 +1,8 @@
 package com.cloudgaming.sessionmanager.controller;
 
+import com.cloudgaming.sessionmanager.dto.AdminGameDto;
 import com.cloudgaming.sessionmanager.dto.CreateGameRequest;
 import com.cloudgaming.sessionmanager.dto.UpdateGameRequest;
-import com.cloudgaming.sessionmanager.entity.Game;
 import com.cloudgaming.sessionmanager.service.GameService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -24,15 +24,14 @@ public class AdminGameController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Game> createGame(@Valid @RequestBody CreateGameRequest request) {
-        Game created = gameService.createGame(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    public ResponseEntity<AdminGameDto> createGame(@Valid @RequestBody CreateGameRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(gameService.createGame(request));
     }
 
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Game> updateGame(@PathVariable UUID id, @Valid @RequestBody UpdateGameRequest request) {
-        Game updated = gameService.updateGame(id, request);
-        return ResponseEntity.ok(updated);
+    public ResponseEntity<AdminGameDto> updateGame(@PathVariable UUID id,
+                                                   @Valid @RequestBody UpdateGameRequest request) {
+        return ResponseEntity.ok(gameService.updateGame(id, request));
     }
 }

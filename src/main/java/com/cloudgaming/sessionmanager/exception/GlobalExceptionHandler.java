@@ -1,5 +1,6 @@
 package com.cloudgaming.sessionmanager.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -14,6 +15,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final String GAMES_SLUG_UNIQUE = "games_slug_key";
 
     private record ErrorResponse(String error, String message) {
     }
@@ -30,10 +33,14 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("GAME_ALREADY_EXISTS", ex.getMessage()));
     }
 
-    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
-    public ResponseEntity<ErrorResponse> handleDataIntegrity(org.springframework.dao.DataIntegrityViolationException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ErrorResponse("GAME_ALREADY_EXISTS", "Игра с таким slug уже существует"));
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex) {
+        if (isSlugUniqueViolation(ex)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse("GAME_ALREADY_EXISTS", "Игра с таким slug уже существует"));
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("DATA_INTEGRITY_VIOLATION", "Нарушение ограничений базы данных"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -61,5 +68,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new ErrorResponse("UNAUTHORIZED", "Отсутствует или невалиден токен"));
+    }
+
+    private boolean isSlugUniqueViolation(Throwable ex) {
+        for (Throwable cause = ex; cause != null && cause != cause.getCause(); cause = cause.getCause()) {
+            String message = cause.getMessage();
+            if (message != null && message.contains(GAMES_SLUG_UNIQUE)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

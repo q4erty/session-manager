@@ -9,11 +9,12 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Component
 public class KeycloakRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
+
     @Override
     public Collection<GrantedAuthority> convert(Jwt jwt) {
         Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
@@ -21,14 +22,16 @@ public class KeycloakRoleConverter implements Converter<Jwt, Collection<GrantedA
             return Collections.emptyList();
         }
 
-        @SuppressWarnings("unchecked")
-        List<String> roles = (List<String>) realmAccess.get("roles");
-        if (roles == null) {
+        Object rawRoles = realmAccess.get("roles");
+        if (!(rawRoles instanceof List<?> roles)) {
             return Collections.emptyList();
         }
 
         return roles.stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-                .collect(Collectors.toList());
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .<GrantedAuthority>map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase(Locale.ROOT)))
+                .toList();
     }
+
 }

@@ -1,5 +1,6 @@
 package com.cloudgaming.sessionmanager.service;
 
+import com.cloudgaming.sessionmanager.dto.AdminGameDto;
 import com.cloudgaming.sessionmanager.dto.CreateGameRequest;
 import com.cloudgaming.sessionmanager.dto.GameDto;
 import com.cloudgaming.sessionmanager.dto.UpdateGameRequest;
@@ -37,14 +38,12 @@ class GameServiceTest {
     void getActiveGames_returnsOnlyActiveGames() {
         Game active = new Game(UUID.randomUUID(), "xonotic", "Xonotic", "img",
                 BigDecimal.ONE, 1, true, true, false, true);
-        Game inactive = new Game(UUID.randomUUID(), "doom", "Doom", "img",
-                BigDecimal.ONE, 1, true, true, false, false);
         when(gameRepository.findByIsActiveTrue()).thenReturn(List.of(active));
 
         List<GameDto> result = gameService.getActiveGames();
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).slug()).isEqualTo("xonotic");
+        assertThat(result.getFirst().slug()).isEqualTo("xonotic");
     }
 
     @Test
@@ -57,12 +56,12 @@ class GameServiceTest {
                 null, null, null, null
         );
 
-        Game saved = gameService.createGame(request);
+        AdminGameDto saved = gameService.createGame(request);
 
-        assertThat(saved.getSupportsKeyboard()).isTrue();
-        assertThat(saved.getSupportsMouse()).isTrue();
-        assertThat(saved.getSupportsGamepad()).isFalse();
-        assertThat(saved.getIsActive()).isTrue();
+        assertThat(saved.supportsKeyboard()).isTrue();
+        assertThat(saved.supportsMouse()).isTrue();
+        assertThat(saved.supportsGamepad()).isFalse();
+        assertThat(saved.isActive()).isTrue();
         verify(gameRepository).save(any(Game.class));
     }
 
@@ -91,10 +90,10 @@ class GameServiceTest {
                 "New Title", null, null, null, null, null, null
         );
 
-        Game updated = gameService.updateGame(id, request);
+        AdminGameDto updated = gameService.updateGame(id, request);
 
-        assertThat(updated.getTitle()).isEqualTo("New Title");
-        assertThat(updated.getRatePerMinute()).isEqualByComparingTo(BigDecimal.ONE);
+        assertThat(updated.title()).isEqualTo("New Title");
+        assertThat(updated.ratePerMinute()).isEqualByComparingTo(BigDecimal.ONE);
     }
 
     @Test

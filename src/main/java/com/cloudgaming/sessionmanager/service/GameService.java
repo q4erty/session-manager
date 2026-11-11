@@ -1,12 +1,14 @@
 package com.cloudgaming.sessionmanager.service;
 
+import com.cloudgaming.sessionmanager.dto.AdminGameDto;
 import com.cloudgaming.sessionmanager.dto.CreateGameRequest;
 import com.cloudgaming.sessionmanager.dto.GameDto;
 import com.cloudgaming.sessionmanager.dto.UpdateGameRequest;
+import com.cloudgaming.sessionmanager.entity.Game;
 import com.cloudgaming.sessionmanager.exception.GameAlreadyExistsException;
 import com.cloudgaming.sessionmanager.exception.GameNotFoundException;
-import com.cloudgaming.sessionmanager.entity.Game;
 import com.cloudgaming.sessionmanager.repository.GameRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,13 +17,10 @@ import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class GameService {
 
     private final GameRepository gameRepository;
-
-    public GameService(GameRepository gameRepository) {
-        this.gameRepository = gameRepository;
-    }
 
     public List<GameDto> getActiveGames() {
         return gameRepository.findByIsActiveTrue().stream()
@@ -38,7 +37,7 @@ public class GameService {
     }
 
     @Transactional
-    public Game createGame(CreateGameRequest request) {
+    public AdminGameDto createGame(CreateGameRequest request) {
         if (gameRepository.existsBySlug(request.slug())) {
             throw new GameAlreadyExistsException("Игра с slug '" + request.slug() + "' уже существует");
         }
@@ -55,11 +54,11 @@ public class GameService {
                 request.supportsGamepad() != null ? request.supportsGamepad() : false,
                 request.isActive() != null ? request.isActive() : true
         );
-        return gameRepository.save(game);
+        return toAdminDto(gameRepository.save(game));
     }
 
     @Transactional
-    public Game updateGame(UUID id, UpdateGameRequest request) {
+    public AdminGameDto updateGame(UUID id, UpdateGameRequest request) {
         Game game = gameRepository.findById(id)
                 .orElseThrow(() -> new GameNotFoundException("Игра с id " + id + " не найдена"));
 
@@ -71,6 +70,15 @@ public class GameService {
         if (request.supportsGamepad() != null) game.setSupportsGamepad(request.supportsGamepad());
         if (request.isActive() != null) game.setIsActive(request.isActive());
 
-        return gameRepository.save(game);
+        return toAdminDto(gameRepository.save(game));
+    }
+
+    private AdminGameDto toAdminDto(Game game) {
+        return new AdminGameDto(
+                game.getId(), game.getSlug(), game.getTitle(), game.getDockerImage(),
+                game.getRatePerMinute(), game.getMinBlockMinutes(),
+                game.getSupportsKeyboard(), game.getSupportsMouse(),
+                game.getSupportsGamepad(), game.getIsActive()
+        );
     }
 }

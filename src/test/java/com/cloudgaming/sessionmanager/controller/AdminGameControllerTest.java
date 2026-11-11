@@ -2,7 +2,7 @@ package com.cloudgaming.sessionmanager.controller;
 
 import com.cloudgaming.sessionmanager.config.KeycloakRoleConverter;
 import com.cloudgaming.sessionmanager.config.SecurityConfig;
-import com.cloudgaming.sessionmanager.entity.Game;
+import com.cloudgaming.sessionmanager.dto.AdminGameDto;
 import com.cloudgaming.sessionmanager.exception.GameAlreadyExistsException;
 import com.cloudgaming.sessionmanager.exception.GameNotFoundException;
 import com.cloudgaming.sessionmanager.exception.GlobalExceptionHandler;
@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -61,7 +61,7 @@ class AdminGameControllerTest {
 
     @Test
     void createGame_withAdminRole_returns201() throws Exception {
-        Game created = new Game(UUID.randomUUID(), "new-game", "New Game", "image",
+        AdminGameDto created = new AdminGameDto(UUID.randomUUID(), "new-game", "New Game", "image",
                 BigDecimal.TEN, 5, true, true, false, true);
         when(gameService.createGame(any())).thenReturn(created);
 
@@ -173,7 +173,7 @@ class AdminGameControllerTest {
     @Test
     void updateGame_withAdminRole_returns200() throws Exception {
         UUID id = UUID.randomUUID();
-        Game updated = new Game(id, "xonotic", "Updated", "img",
+        AdminGameDto updated = new AdminGameDto(id, "xonotic", "Updated", "img",
                 BigDecimal.ONE, 1, true, true, false, true);
         when(gameService.updateGame(eq(id), any())).thenReturn(updated);
 
@@ -205,5 +205,38 @@ class AdminGameControllerTest {
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("GAME_NOT_FOUND"));
+    }
+
+    @Test
+    void updateGame_withBlankTitle_returns400() throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/games/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"   \"}")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+        verify(gameService, never()).updateGame(any(), any());
+    }
+
+    @Test
+    void updateGame_withZeroRate_returns400() throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/games/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ratePerMinute\":0}")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+        verify(gameService, never()).updateGame(any(), any());
+    }
+
+    @Test
+    void updateGame_withZeroMinBlock_returns400() throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/games/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"minBlockMinutes\":0}")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+        verify(gameService, never()).updateGame(any(), any());
     }
 }

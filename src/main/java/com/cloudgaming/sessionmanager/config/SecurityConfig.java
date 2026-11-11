@@ -1,25 +1,32 @@
 package com.cloudgaming.sessionmanager.config;
 
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final KeycloakRoleConverter keycloakRoleConverter;
-
-    public SecurityConfig(KeycloakRoleConverter keycloakRoleConverter) {
-        this.keycloakRoleConverter = keycloakRoleConverter;
-    }
 
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
@@ -42,6 +49,31 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(jsonEntryPoint())
+                        .accessDeniedHandler(jsonAccessDeniedHandler())
+                )
                 .build();
+    }
+
+    private AuthenticationEntryPoint jsonEntryPoint() {
+        BearerTokenAuthenticationEntryPoint delegate = new BearerTokenAuthenticationEntryPoint();
+        return (request, response, ex) -> {
+            delegate.commence(request, response, ex);
+            writeError(response, HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Отсутствует или невалиден токен");
+        };
+    }
+
+    private AccessDeniedHandler jsonAccessDeniedHandler() {
+        return (request, response, ex) ->
+                writeError(response, HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Недостаточно прав");
+    }
+
+    private static void writeError(HttpServletResponse response, HttpStatus status,
+                                   String code, String message) throws IOException {
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write("{\"error\":\"" + code + "\",\"message\":\"" + message + "\"}");
     }
 }

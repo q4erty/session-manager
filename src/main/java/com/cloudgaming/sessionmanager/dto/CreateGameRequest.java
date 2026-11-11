@@ -1,24 +1,25 @@
 package com.cloudgaming.sessionmanager.dto;
 
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 
 public record CreateGameRequest(
         @NotBlank
+        @Size(max = 64)
         String slug,
 
         @NotBlank
+        @Size(max = 128)
         String title,
 
         @NotBlank
+        @Size(max = 255)
         String dockerImage,
 
         @NotNull
-        @Positive
+        @DecimalMin("0.01")
+        @Digits(integer = 13, fraction = 2)
         BigDecimal ratePerMinute,
 
         @NotNull
