@@ -9,7 +9,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -24,8 +26,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(GameController.class)
 @Import({SecurityConfig.class, KeycloakRoleConverter.class})
@@ -77,5 +78,17 @@ class GameControllerTest {
         mockMvc.perform(get("/api/v1/games")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getActiveGames_withInvalidBearerToken_returnsStructured401() throws Exception {
+        when(jwtDecoder.decode(anyString())).thenThrow(new BadJwtException("token expired"));
+
+        mockMvc.perform(get("/api/v1/games")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer broken-token"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().exists(HttpHeaders.WWW_AUTHENTICATE))
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.message").exists());
     }
 }
