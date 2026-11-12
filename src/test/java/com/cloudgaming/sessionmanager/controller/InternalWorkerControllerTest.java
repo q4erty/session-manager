@@ -14,6 +14,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(InternalWorkerController.class)
 @Import({SecurityConfig.class, KeycloakRoleConverter.class, GlobalExceptionHandler.class})
 @TestPropertySource(properties = "app.security.internal-secret=test-secret")
+@ActiveProfiles("dev")
 class InternalWorkerControllerTest {
 
     private static final String SECRET_HEADER = "X-Internal-Secret";
@@ -124,5 +126,18 @@ class InternalWorkerControllerTest {
         mockMvc.perform(post("/internal/dev/workers/c-1/stop")
                         .header(SECRET_HEADER, "test-secret"))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void start_withEncodedInternalPath_stillRequiresSecret() throws Exception {
+        mockMvc.perform(post("/internal/dev/workers/start")
+                        .with(request -> {
+                            request.setRequestURI("/%69nternal/dev/workers/start");
+                            return request;
+                        })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(BODY))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("INTERNAL_SECRET_INVALID"));
     }
 }

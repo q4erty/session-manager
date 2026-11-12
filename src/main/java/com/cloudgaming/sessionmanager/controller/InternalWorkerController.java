@@ -5,6 +5,7 @@ import com.cloudgaming.sessionmanager.dto.WorkerHandleDto;
 import com.cloudgaming.sessionmanager.service.WorkerDevService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Защита — заголовок X-Internal-Secret, не JWT. Будут удалены после появления сессий.
  */
 @RestController
+@Profile("dev")
 @RequestMapping("/internal/dev/workers")
 @RequiredArgsConstructor
 public class InternalWorkerController {

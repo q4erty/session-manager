@@ -2,16 +2,9 @@ package com.cloudgaming.sessionmanager.service;
 
 import com.cloudgaming.sessionmanager.dto.WorkerHandleDto;
 import com.cloudgaming.sessionmanager.entity.Game;
-import com.cloudgaming.sessionmanager.exception.GameNotFoundException;
-import com.cloudgaming.sessionmanager.exception.NoCapacityException;
-import com.cloudgaming.sessionmanager.exception.WorkerNotFoundException;
-import com.cloudgaming.sessionmanager.exception.WorkerStartFailedException;
+import com.cloudgaming.sessionmanager.exception.*;
 import com.cloudgaming.sessionmanager.repository.GameRepository;
-import com.cloudgaming.sessionmanager.runtime.CapacityAllocator;
-import com.cloudgaming.sessionmanager.runtime.Slot;
-import com.cloudgaming.sessionmanager.runtime.StartSpec;
-import com.cloudgaming.sessionmanager.runtime.WorkerHandle;
-import com.cloudgaming.sessionmanager.runtime.WorkerRuntime;
+import com.cloudgaming.sessionmanager.runtime.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -122,5 +116,37 @@ class WorkerDevServiceTest {
         verify(workerRuntime).stop(eq("c-1"), eq(Duration.ofSeconds(30)));
         verify(workerRuntime).remove("c-1");
         verify(capacityAllocator).release(anyString());
+    }
+
+    @Test
+    void stopWorker_whenContainerSurvives_keepsSlotAndAllowsRetry() {
+        when(gameRepository.findBySlug("xonotic")).thenReturn(Optional.of(game(true)));
+        when(capacityAllocator.tryAllocate(anyString())).thenReturn(Optional.of(new Slot(9090)));
+        when(workerRuntime.start(any()))
+                .thenReturn(new WorkerHandle("c-1", "cg-worker-12345678", "127.0.0.1", 9090));
+        service.startWorker("xonotic");
+
+        when(workerRuntime.listManaged()).thenReturn(List.of(
+                new ManagedContainer("c-1", "cg-worker-12345678", "room-1", "xonotic", true)));
+
+        assertThatThrownBy(() -> service.stopWorker("c-1"))
+                .isInstanceOf(WorkerStopFailedException.class);
+        verify(capacityAllocator, never()).release(anyString());
+
+        // маппинг сохранён — повтор не даёт WORKER_NOT_FOUND
+        assertThatThrownBy(() -> service.stopWorker("c-1"))
+                .isInstanceOf(WorkerStopFailedException.class);
+    }
+
+    @Test
+    void reconcile_adoptsRunningContainerAndOccupiesSlot() {
+        when(workerRuntime.listManaged()).thenReturn(List.of(
+                new ManagedContainer("c-1", "cg-worker-12345678", "room-1", "xonotic", true)));
+        when(capacityAllocator.tryAllocate("room-1")).thenReturn(Optional.of(new Slot(9090)));
+
+        service.reconcileManagedContainers();
+
+        verify(capacityAllocator).tryAllocate("room-1");
+        verify(workerRuntime, never()).remove(anyString());
     }
 }

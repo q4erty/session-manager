@@ -135,13 +135,16 @@ public class DockerWorkerRuntime implements WorkerRuntime {
                 String logs = tailLogs(containerId);
                 log.error("Worker {} exited before readiness. Last {} lines:\n{}",
                         containerId, CRASH_LOG_LINES, logs);
-                throw new WorkerStartFailedException("Контейнер завершился до готовности. Логи: " + logs);
+                throw new WorkerStartFailedException("Контейнер завершился до готовности");
             }
             if (readinessProbe.isReady(properties.advertisedHost(), WEBRTC_PORT)) {
                 return;
             }
             sleep();
         }
+        String logs = tailLogs(containerId);
+        log.error("Worker {} not ready within {}. Last {} lines:\n{}",
+                containerId, properties.readyTimeout(), CRASH_LOG_LINES, logs);
         throw new WorkerNotReadyException("Воркер не стал готовым за " + properties.readyTimeout());
     }
 
@@ -177,9 +180,13 @@ public class DockerWorkerRuntime implements WorkerRuntime {
     private void cleanupQuietly(String containerId) {
         try {
             stop(containerId, Duration.ofSeconds(30));
+        } catch (RuntimeException e) {
+            log.warn("Не удалось остановить контейнер {} после сбоя запуска", containerId, e);
+        }
+        try {
             remove(containerId);
         } catch (RuntimeException e) {
-            log.warn("Не удалось убрать контейнер {} после сбоя запуска", containerId, e);
+            log.error("Не удалось удалить контейнер {} после сбоя запуска — возможна сирота", containerId, e);
         }
     }
 

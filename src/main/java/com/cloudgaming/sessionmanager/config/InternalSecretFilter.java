@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UriUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -24,7 +25,7 @@ public class InternalSecretFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        if (!request.getRequestURI().startsWith("/internal/")) {
+        if (!resolvePath(request).startsWith("/internal/")) {
             chain.doFilter(request, response);
             return;
         }
@@ -32,7 +33,8 @@ public class InternalSecretFilter extends OncePerRequestFilter {
         String provided = request.getHeader(HEADER);
         String expected = properties.internalSecret();
 
-        if (provided == null || expected == null || !constantTimeEquals(provided, expected)) {
+        if (provided == null || expected == null || expected.isBlank()
+                || !constantTimeEquals(provided, expected)) {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
@@ -42,6 +44,18 @@ public class InternalSecretFilter extends OncePerRequestFilter {
         }
 
         chain.doFilter(request, response);
+    }
+
+    private static String resolvePath(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        if (uri == null) {
+            return "";
+        }
+        String contextPath = request.getContextPath();
+        if (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath)) {
+            uri = uri.substring(contextPath.length());
+        }
+        return UriUtils.decode(uri, StandardCharsets.UTF_8);
     }
 
     private static boolean constantTimeEquals(String a, String b) {

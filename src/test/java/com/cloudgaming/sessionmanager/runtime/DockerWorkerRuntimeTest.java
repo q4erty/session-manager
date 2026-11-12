@@ -30,11 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
-import static org.mockito.Mockito.RETURNS_SELF;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class DockerWorkerRuntimeTest {
 
@@ -145,10 +141,11 @@ class DockerWorkerRuntimeTest {
     void start_whenWorkerNeverReady_throwsNotReadyAndCleansUp() {
         when(probe.isReady(anyString(), anyInt())).thenReturn(false);
 
-        DockerWorkerRuntime runtime = runtime(false, Duration.ZERO);
+        DockerWorkerRuntime runtime = runtime(false, Duration.ofMillis(600));
 
         assertThatThrownBy(() -> runtime.start(SPEC))
                 .isInstanceOf(WorkerNotReadyException.class);
+        verify(probe, atLeastOnce()).isReady("127.0.0.1", 9090);
         verify(dockerClient).stopContainerCmd("container-1");
         verify(dockerClient).removeContainerCmd("container-1");
     }

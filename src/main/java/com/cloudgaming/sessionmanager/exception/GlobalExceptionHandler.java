@@ -1,5 +1,6 @@
 package com.cloudgaming.sessionmanager.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     private static final String GAMES_SLUG_UNIQUE = "games_slug_key";
@@ -42,11 +44,18 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("NO_CAPACITY", ex.getMessage()));
     }
 
-    /** 500 — контейнер не запустился или упал до готовности. */
     @ExceptionHandler(WorkerStartFailedException.class)
     public ResponseEntity<ErrorResponse> handleWorkerStartFailed(WorkerStartFailedException ex) {
+        log.error("Worker start failed", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse("WORKER_START_FAILED", ex.getMessage()));
+                .body(new ErrorResponse("WORKER_START_FAILED", "Не удалось запустить игровой воркер"));
+    }
+
+    @ExceptionHandler(WorkerStopFailedException.class)
+    public ResponseEntity<ErrorResponse> handleWorkerStopFailed(WorkerStopFailedException ex) {
+        log.error("Worker stop failed", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse("WORKER_STOP_FAILED", "Не удалось остановить игровой воркер"));
     }
 
     /** 503 — воркер не подтвердил готовность в срок. */
