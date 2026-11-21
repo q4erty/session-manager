@@ -2,9 +2,19 @@ package com.cloudgaming.sessionmanager.service;
 
 import com.cloudgaming.sessionmanager.dto.WorkerHandleDto;
 import com.cloudgaming.sessionmanager.entity.Game;
-import com.cloudgaming.sessionmanager.exception.*;
+import com.cloudgaming.sessionmanager.exception.GameNotFoundException;
+import com.cloudgaming.sessionmanager.exception.NoCapacityException;
+import com.cloudgaming.sessionmanager.exception.WorkerNotFoundException;
+import com.cloudgaming.sessionmanager.exception.WorkerStartFailedException;
+import com.cloudgaming.sessionmanager.exception.WorkerStopFailedException;
 import com.cloudgaming.sessionmanager.repository.GameRepository;
-import com.cloudgaming.sessionmanager.runtime.*;
+import com.cloudgaming.sessionmanager.runtime.CapacityAllocator;
+import com.cloudgaming.sessionmanager.runtime.ManagedContainer;
+import com.cloudgaming.sessionmanager.runtime.Slot;
+import com.cloudgaming.sessionmanager.runtime.StartSpec;
+import com.cloudgaming.sessionmanager.runtime.WorkerHandle;
+import com.cloudgaming.sessionmanager.runtime.WorkerRuntime;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -38,6 +48,11 @@ class WorkerDevServiceTest {
 
     @InjectMocks
     WorkerDevService service;
+
+    @BeforeEach
+    void setUp() {
+        service.reconcileManagedContainers();
+    }
 
     private Game game(boolean active) {
         return new Game(UUID.randomUUID(), "xonotic", "Xonotic", "xonotic-worker",
@@ -140,11 +155,13 @@ class WorkerDevServiceTest {
 
     @Test
     void reconcile_adoptsRunningContainerAndOccupiesSlot() {
+        WorkerDevService freshService = new WorkerDevService(gameRepository, capacityAllocator, workerRuntime);
+
         when(workerRuntime.listManaged()).thenReturn(List.of(
                 new ManagedContainer("c-1", "cg-worker-12345678", "room-1", "xonotic", true)));
         when(capacityAllocator.tryAllocate("room-1")).thenReturn(Optional.of(new Slot(9090)));
 
-        service.reconcileManagedContainers();
+        freshService.reconcileManagedContainers();
 
         verify(capacityAllocator).tryAllocate("room-1");
         verify(workerRuntime, never()).remove(anyString());
@@ -152,25 +169,25 @@ class WorkerDevServiceTest {
 
     @Test
     void reconcile_whenListManagedFails_disablesStartWorker() {
+        WorkerDevService freshService = new WorkerDevService(gameRepository, capacityAllocator, workerRuntime);
         when(workerRuntime.listManaged()).thenThrow(new RuntimeException("Docker daemon down"));
 
-        service.reconcileManagedContainers();
+        freshService.reconcileManagedContainers();
 
-        assertThatThrownBy(() -> service.startWorker("xonotic"))
+        assertThatThrownBy(() -> freshService.startWorker("xonotic"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Reconciliation не завершён");
     }
 
     @Test
     void reconcile_whenStopAndRemoveFails_disablesStartWorker() {
-        when(workerRuntime.listManaged()).thenReturn(List.of(
-                new ManagedContainer("c-1", "cg-worker-12345678", null, "xonotic", false)));
+        WorkerDevService freshService = new WorkerDevService(gameRepository, capacityAllocator, workerRuntime);
         when(workerRuntime.listManaged()).thenReturn(List.of(
                 new ManagedContainer("c-1", "cg-worker-12345678", null, "xonotic", false)));
 
-        service.reconcileManagedContainers();
+        freshService.reconcileManagedContainers();
 
-        assertThatThrownBy(() -> service.startWorker("xonotic"))
+        assertThatThrownBy(() -> freshService.startWorker("xonotic"))
                 .isInstanceOf(IllegalStateException.class);
     }
 }
