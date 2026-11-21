@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: session-manager
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   threads:
     virtual:
       enabled: true
@@ -22,9 +24,29 @@ spring:
     properties:
       hibernate:
         default_schema: session_manager
+  data:
+    redis:
+      host: localhost
+      port: 6379
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8180/realms/cloud-gaming
           jwk-set-uri: http://localhost:8180/realms/cloud-gaming/protocol/openid-connect/certs
+
+management:
+  health:
+    redis:
+      enabled: false
+
+app:
+  worker:
+    docker-host: unix:///var/run/docker.sock
+    advertised-host: 127.0.0.1
+    ready-timeout: 90s
+    uinput-enabled: false
+    memory-limit: "4g"
+    cpu-limit: 4
+  security:
+    internal-secret: ${INTERNAL_SECRET:CHANGE_ME}

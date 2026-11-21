@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -35,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(AdminGameController.class)
 @Import({SecurityConfig.class, KeycloakRoleConverter.class, GlobalExceptionHandler.class})
+@TestPropertySource(properties = "app.security.internal-secret=test-secret")
 class AdminGameControllerTest {
 
     @Autowired
