@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Временный сервис проверки рантайма воркеров до появления логики сессий.
@@ -40,6 +41,7 @@ public class WorkerDevService {
     private final WorkerRuntime workerRuntime;
 
     private final Map<String, String> containerToRoom = new ConcurrentHashMap<>();
+    private final AtomicBoolean reconciled = new AtomicBoolean(false);
 
     /**
      * Подбирает контейнеры, оставшиеся от прошлого запуска: живой воркер берётся под учёт
@@ -60,11 +62,18 @@ public class WorkerDevService {
                 } else {
                     log.warn("Removing stale managed container: container={}, running={}",
                             containerId, container.running());
-                    stopAndRemove(containerId);
+                    if (!stopAndRemove(containerId)) {
+                        log.error("Не удалось удалить stale-контейнер {}; reconciliation failed", containerId);
+                        reconciled.set(false);
+                        return;
+                    }
                 }
             }
+            reconciled.set(true);
+            log.info("Reconciliation complete: {} containers tracked", containerToRoom.size());
         } catch (RuntimeException e) {
             log.error("Startup reconciliation of managed containers failed", e);
+            reconciled.set(false);
         }
     }
 
@@ -74,8 +83,13 @@ public class WorkerDevService {
      *
      * @param gameSlug slug игры
      * @return данные запущенного воркера
+     * @throws IllegalStateException если reconciliation не завершился успешно
      */
     public WorkerHandleDto startWorker(String gameSlug) {
+        if (!reconciled.get()) {
+            throw new IllegalStateException("Reconciliation не завершён; startWorker недоступен");
+        }
+
         Game game = gameRepository.findBySlug(gameSlug)
                 .filter(g -> Boolean.TRUE.equals(g.getIsActive()))
                 .orElseThrow(() -> new GameNotFoundException("Игра не найдена или неактивна: " + gameSlug));

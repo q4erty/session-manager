@@ -149,4 +149,28 @@ class WorkerDevServiceTest {
         verify(capacityAllocator).tryAllocate("room-1");
         verify(workerRuntime, never()).remove(anyString());
     }
+
+    @Test
+    void reconcile_whenListManagedFails_disablesStartWorker() {
+        when(workerRuntime.listManaged()).thenThrow(new RuntimeException("Docker daemon down"));
+
+        service.reconcileManagedContainers();
+
+        assertThatThrownBy(() -> service.startWorker("xonotic"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Reconciliation не завершён");
+    }
+
+    @Test
+    void reconcile_whenStopAndRemoveFails_disablesStartWorker() {
+        when(workerRuntime.listManaged()).thenReturn(List.of(
+                new ManagedContainer("c-1", "cg-worker-12345678", null, "xonotic", false)));
+        when(workerRuntime.listManaged()).thenReturn(List.of(
+                new ManagedContainer("c-1", "cg-worker-12345678", null, "xonotic", false)));
+
+        service.reconcileManagedContainers();
+
+        assertThatThrownBy(() -> service.startWorker("xonotic"))
+                .isInstanceOf(IllegalStateException.class);
+    }
 }

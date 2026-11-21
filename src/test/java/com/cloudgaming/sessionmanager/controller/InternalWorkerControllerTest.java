@@ -127,7 +127,7 @@ class InternalWorkerControllerTest {
                         .header(SECRET_HEADER, "test-secret"))
                 .andExpect(status().isNoContent());
     }
-
+1
     @Test
     void start_withEncodedInternalPath_stillRequiresSecret() throws Exception {
         mockMvc.perform(post("/internal/dev/workers/start")

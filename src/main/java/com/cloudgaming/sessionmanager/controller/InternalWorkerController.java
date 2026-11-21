@@ -18,8 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
  * Временные dev-эндпоинты проверки рантайма воркеров.
  * Защита — заголовок X-Internal-Secret, не JWT. Будут удалены после появления сессий.
  */
-@RestController
 @Profile("dev")
+@RestController
 @RequestMapping("/internal/dev/workers")
 @RequiredArgsConstructor
 public class InternalWorkerController {
